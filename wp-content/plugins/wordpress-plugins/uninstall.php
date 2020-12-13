@@ -11,4 +11,4 @@ if (!defined('WP_UNINSTALL_PLUGIN')) exit;
  
 // drop a custom database table
 global $wpdb;
-$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}contact_requests");
+$wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}email_list");
