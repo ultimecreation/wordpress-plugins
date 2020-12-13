@@ -57,77 +57,8 @@ register_deactivation_hook( __FILE__, 'do_some_stuffs_on_plugin_deactivate' );
 // FIN ACTIVATION -DÉSACTIVATION
 ////////////////////////////
 
-////////////////////////////
-// ADMINISTRATION
-////////////////////////////
-/**
- * Création de la page d'administration avec l'ajout d'un bouton dans le menu
- * documentation => https://developer.wordpress.org/reference/functions/add_menu_page/
- * 
- * create_my_custom_menu_page_and_menu_item
- * @return void
- */
-function create_my_custom_menu_page_and_menu_item(){
-    
-     add_menu_page("Liste", "Wp plugin test", "manage_options",__FILE__, 'render_my_admin_page_content', "dashicons-email", 25);
-}
-add_action( 'admin_menu', 'create_my_custom_menu_page_and_menu_item' );
- 
-/**
- * Afficher le contenu de la nouvelle page d'administration
- * les class=... sont des classes de wp
- */
-function render_my_admin_page_content(){
-    ?>
-        <div class="wrap">
-        <h1 class="wp-heading-inline">Liste </h1>
-            <?php $status = get_transient('contact_deleted');
-                if($status){
-                    echo "<p style='background: green;padding:0.25rem;color:white;text-align:center;'>$status</p>";
-                    delete_transient('contact_deleted');
-                }
-            ?>
 
-            <hr class="wp-header-end">
 
-            <table class="wp-list-table widefat fixed striped table-view-list posts">
-                <thead>
-                    <tr>
-                        <th class="manage-column" >
-                            <span>Nom</span>
-                        </th>
-                        <th class="manage-column" >
-                            <span>Email</span>
-                        </th>
-                        <th class="manage-column" >
-                            <span>Actions</span>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><?php  ?></td>
-                        <td><?php  ?></td>
-                       
-                        <td>
-                            <form action="<?php echo admin_url('admin-post.php');?>" method="POST">
-                                <input type="hidden" name="action" value="admin_delete_contact">
-                                <input type="hidden" name="idToDelete" >
-                                <input type="hidden" name="delete_contact_nonce" value="<?php echo wp_create_nonce('delete_contact_nonce');?>">
-                                <?php
-                                submit_button('&#128465;', 'secondary', '', true, array('style' => 'background:red;color:white'));
-                                ?>
-                            </form>
-                        </td>
-                    </tr>   
-                </tbody>
-            </table>
-        </div>
-    <?php
-}
-////////////////////////////
-// FIN ADMINISTRATION
-////////////////////////////
 
 ////////////////////////////
 // FRONTEND SHORTCODE
@@ -183,9 +114,19 @@ add_action( 'init', 'register_my_form_shortcode' );
 
 
 
+////////////////////////////
+// FRONTEND FROM SUBMISSION
+////////////////////////////
 
-add_action( 'wp_ajax_nopriv_my_submit_ajax_handler', 'do_my_stuffs_when_submit_button_is_clicked' );
-add_action( 'wp_ajax_my_submit_ajax_handler', 'do_my_stuffs_when_submit_button_is_clicked' );
+
+
+/**
+ * prise en charge de la soumission du formulaire
+ * documentation => https://codex.wordpress.org/AJAX_in_Plugins
+ * 
+ * do_my_stuffs_when_submit_button_is_clicked
+ * @return void
+ */
 function do_my_stuffs_when_submit_button_is_clicked() 
 {
     // vérifie que l'action soit celle attendue
@@ -249,7 +190,252 @@ function do_my_stuffs_when_submit_button_is_clicked()
             ));
         }
          wp_die();
-        
     }
-   
 }
+add_action( 'wp_ajax_nopriv_my_submit_ajax_handler', 'do_my_stuffs_when_submit_button_is_clicked' );
+add_action( 'wp_ajax_my_submit_ajax_handler', 'do_my_stuffs_when_submit_button_is_clicked' );
+////////////////////////////
+// FIN FRONTEND FROM SUBMISSION
+////////////////////////////
+
+
+
+
+////////////////////////////
+// ADMINISTRATION
+////////////////////////////
+/**
+ * Création de la page d'administration avec l'ajout d'un bouton dans le menu
+ * documentation => https://developer.wordpress.org/reference/functions/add_menu_page/
+ * 
+ * create_my_custom_menu_page_and_menu_item
+ * @return void
+ */
+function create_my_custom_menu_page_and_menu_item(){
+    
+    add_menu_page(
+        __( 'Wp email list', 'my-textdomain' ),
+        __( 'Wp email list', 'my-textdomain' ),
+        'manage_options',
+        'wp-email-list',
+        'render_my_admin_page_content',
+        'dashicons-schedule',
+        3
+    );
+}
+add_action( 'admin_menu', 'create_my_custom_menu_page_and_menu_item' );
+ 
+/**
+ * Afficher le contenu de la nouvelle page d'administration
+ * les class=... sont des classes de wp
+ */
+function render_my_admin_page_content()
+{
+    // on affiche d'abord le formulaire de modification si action=edit_entry est défini dans l'url
+    // sinon on affiche la liste 
+    if($_GET['action'] =='edit_entry'){
+        do_my_stuffs_when_entry_edit_link_is_clicked();
+    }
+    ?>
+        <div class="wrap">
+        <h1 class="wp-heading-inline">Liste </h1>
+            <?php $status = get_transient('contact_deleted');
+                if($status){
+                    echo "<p style='background: green;padding:0.25rem;color:white;text-align:center;'>$status</p>";
+                    delete_transient('contact_deleted');
+                }
+            ?>
+
+            <hr class="wp-header-end">
+
+            <table class="wp-list-table widefat fixed striped table-view-list posts">
+                <thead>
+                    <tr>
+                        <th class="manage-column" >
+                            <span>Nom</span>
+                        </th>
+                        <th class="manage-column" >
+                            <span>Email</span>
+                        </th>
+                        <th class="manage-column" >
+                            <span>Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                        // recupère la connexion à la bdd
+                        global $wpdb;
+
+                        // recupère toutes les entrées en bdd avant de boucler dessus
+                        $entries = $wpdb->get_results(
+                            "SELECT * FROM {$wpdb->prefix}email_list"
+                        );
+                    ?>
+                    <?php foreach($entries as $entry):?>
+                        <tr>
+                            <td><?php echo $entry->name; ?></td>
+                                <td><?php echo $entry->email ?></td>
+                            
+                                <td>
+                                    <a href="<?php echo admin_url("admin.php?page=wp-email-list&action=edit_entry&id={$entry->id}");?>" >Éditer</a>
+                                    <form action="<?php echo admin_url('admin-post.php');?>" method="POST">
+                                        <input type="hidden" name="action" value="delete_entry">
+                                        <input type="hidden" name="idToDelete" value="<?php echo $entry->id;?>">
+                                        <input type="hidden" name="delete_entry_nonce" value="<?php echo wp_create_nonce('delete_entry_nonce');?>">
+                                        <?php
+                                        submit_button('&#128465;', 'secondary', '', true, array('style' => 'background:red;color:white'));
+                                        ?>
+                                    </form>
+                                </td>
+                             </tr>    
+                       <?php endforeach;?>
+                </tbody>
+            </table>
+        </div>
+    <?php
+}
+
+/**
+ * on récupère une entrée en bdd via son id pour l'afficher sur le formulaire
+ * 
+ * do_my_stuffs_when_entry_edit_link_is_clicked
+ * @return void
+ */
+function do_my_stuffs_when_entry_edit_link_is_clicked(){
+    // récupère la connexion à la bdd
+    global $wpdb;
+
+    // récupère l'id dans l'url
+    $id = intval($_GET['id']);
+
+    // récupère la ligne en bdd avec une requête préparée
+    $entry = $wpdb->get_row(
+        $wpdb->prepare("
+            SELECT * FROM {$wpdb->prefix}email_list
+            WHERE id=%d",
+            array($id)    
+        )
+   );
+    ?>
+    <h1 class="wp-heading-inline">Modification</h1>
+    <a href="<?php echo admin_url('admin.php?page=wp-email-list');?>" class="button action" >&lt; Retour</a>
+    <br><br>
+    <form action="<?php echo admin_url('admin-post.php');?>" method="POST">
+        <div>
+            <label for="name">Nom</label>
+            <input type="text" name="name" id="name" value="<?php echo $entry->name;?>">
+        </div><br>
+        <div>
+            <label for="email">Email</label>
+            <input type="text" value="<?php echo $entry->email;?>" disabled>
+        </div><br>
+        <input type="hidden" name="idToUpdate" value="<?php echo $id;?>">
+        <input type="hidden" name="action" value="update_entry">
+        <input type="hidden" name="update_nonce" value="<?php echo wp_create_nonce('update_nonce');?>">
+        <input type="submit" value="Soumettre" class="button action">
+    </form>
+    <?php
+    exit;
+}
+
+
+/**
+ * on met à jour une entrée dans la bdd
+ * 
+ * do_my_stuffs_when_entry_update_link_is_clicked
+ * @return void
+ */
+function do_my_stuffs_when_entry_update_link_is_clicked()
+{
+    // l'action est celle attendue
+    if($_POST['action'] == 'update_entry')
+    {
+        if(!wp_verify_nonce($_POST['update_nonce'],'update_nonce'))
+        {
+            // le nonce n'a pas été validé ,on redirige vers l'endroit d'où l'utilisateur vient
+            wp_redirect(wp_get_referer());
+            
+        }
+
+        // on nettoie l'id à modifier et le $name
+        $idToUpdate = intval($_POST['idToUpdate']);
+        $name = sanitize_text_field($_POST['name']);
+
+        // on récupère la connexion à la bdd
+        global $wpdb;
+
+        // on fait la requête de modification
+        $wpdb->query(
+            $wpdb->prepare("
+                UPDATE {$wpdb->prefix}email_list
+                SET name=%s
+                WHERE id=%d",
+            array($name,$idToUpdate))
+        );
+        
+        // on redirige vers la liste d'email
+        wp_redirect(admin_url("admin.php?page=wp-email-list"));
+    }
+}
+add_action( 'admin_post_update_entry', 'do_my_stuffs_when_entry_update_link_is_clicked' );
+
+
+
+/**
+ * supprime une entrée dand la bdd
+ * 
+ * do_my_stuffs_when_entry_delete_link_is_clicked
+ * @return void
+ */
+function do_my_stuffs_when_entry_delete_link_is_clicked()
+{
+    // l'action est celle attendue
+    if($_POST['action'] === 'delete_entry')
+    {
+        // on redirige si le nonce n'est pas validé
+        if(!wp_verify_nonce($_POST['delete_entry_nonce'],'delete_entry_nonce')){
+            wp_redirect(wp_get_referer());
+        }
+
+        // on récupère la connexion à la bdd et l'id à supprimer
+        global $wpdb;
+        $idToDelete = intval($_POST['idToDelete']);
+
+        // on fait une requête pour savoir si l'entrée existe en bdd
+        $entry_exists = $wpdb->get_row(
+            $wpdb->prepare("
+                SELECT * FROM {$wpdb->prefix}email_list",
+                array($idToDelete))
+        );
+
+        if($entry_exists)
+        {
+            // l'entrée existe, donc on la supprime
+            $wpdb->query(
+                $wpdb->prepare("
+                    DELETE FROM {$wpdb->prefix}email_list
+                    WHERE id=%d",
+                    array($idToDelete))
+            );
+
+            // on redirige vers la liste d'entrées
+            wp_redirect(admin_url('admin.php?page=wp-email-list'));
+        }
+    }
+    
+}
+add_action( 'admin_post_delete_entry', 'do_my_stuffs_when_entry_delete_link_is_clicked' );
+
+
+
+
+////////////////////////////
+// FIN ADMINISTRATION
+////////////////////////////
+
+
+
+
+
+

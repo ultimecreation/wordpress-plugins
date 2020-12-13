@@ -32,16 +32,21 @@ window.addEventListener('DOMContentLoaded',function()
         })
         .then(response => { return response.json() })
         .then( data => {
+            // récupère le conteneur de feddback
             var feedbackContainer = document.querySelector('#my-form-feedback')
             if(data.success == true){
+                // affiche le feesdback de succès
                 feedbackContainer.innerHTML = data.message
             }
             if(data.success == false){
-                console.log(data)
+                // affiche le feedback d'erreur
                 feedbackContainer.innerHTML = data.data.message
             }
-            setTimeout(function(){
+            setTimeout(function(){ 
+                // réintilise le formulaire et le conteneur de feedback
+                    document.querySelector('#my-form').reset()
                     feedbackContainer.innerHTML = ''
+                   
                 },3000)
         })
         .catch(err => { console.log(err) })
